@@ -14,7 +14,7 @@ import {
   useGetAllPreordersQuery,
   useUpdatePreorderMutation,
   useDeletePreorderMutation 
-} from "./redux/features/preorder/preorder.api"; // আপনার ফাইলের সঠিক পাথটি রাখুন
+} from "./redux/features/preorder/preorder.api"; 
 
 export default function PreordersTable() {
   const router = useRouter();
@@ -31,40 +31,41 @@ export default function PreordersTable() {
   const [isSortOpen, setIsSortOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // --- RTK Query Backend Payload Preparation ---
+  // --- RTK Query Backend Payload Preparation (FIXED) ---
   const apiQuery: Record<string, any> = {
     page: queryParams.page,
     limit: queryParams.limit,
     sort: queryParams.sort
   };
   
-  if (queryParams.status === "Active") apiQuery.status = "true";
-  if (queryParams.status === "Inactive") apiQuery.status = "false";
+  // এখানে কন্ডিশন ফিক্স করা হয়েছে যেন সরাসরি বুলিয়ান ভ্যালু পাস হয়
+  if (queryParams.status === "Active") apiQuery.status = true;
+  if (queryParams.status === "Inactive") apiQuery.status = false;
+  console.log(apiQuery, "first")
 
   // Fetching Data
   const { data: apiResponse, isLoading, isFetching } = useGetAllPreordersQuery(apiQuery);
   const [updatePreorder] = useUpdatePreorderMutation();
   const [deletePreorder] = useDeletePreorderMutation();
+  console.log({apiResponse})
 
   // API Data Extraction
   const preorders = apiResponse?.data?.result || [];
   const meta = apiResponse?.data?.meta || { page: 1, limit: 10, total: 0, totalPage: 1 };
 
-  // সর্ট ড্রপডাউন লেবেলের ম্যাপিং
-  const sortLabelMap: Record<string, { by: string; order: string }> = {
-    "name": { by: "Name", order: "Ascending" },
-    "-name": { by: "Name", order: "Descending" },
-    "createdAt": { by: "Created At", order: "Ascending" },
-    "-createdAt": { by: "Created At", order: "Descending" },
-    "startsAt": { by: "Starts At", order: "Ascending" },
-    "-startsAt": { by: "Starts At", order: "Descending" },
-    "endsAt": { by: "Ends At", order: "Ascending" },
-    "-endsAt": { by: "Ends At", order: "Descending" }
+  const sortLabelMap: Record<string, { by: string; field: string; order: string }> = {
+    "name": { by: "Name", field: "name", order: "Ascending" },
+    "-name": { by: "Name", field: "name", order: "Descending" },
+    "createdAt": { by: "Created At", field: "createdAt", order: "Ascending" },
+    "-createdAt": { by: "Created At", field: "createdAt", order: "Descending" },
+    "startsAt": { by: "Starts At", field: "startsAt", order: "Ascending" },
+    "-startsAt": { by: "Starts At", field: "startsAt", order: "Descending" },
+    "endsAt": { by: "Ends At", field: "endsAt", order: "Ascending" },
+    "-endsAt": { by: "Ends At", field: "endsAt", order: "Descending" }
   };
 
-  const currentSort = sortLabelMap[queryParams.sort] || { by: "Created At", order: "Descending" };
+  const currentSort = sortLabelMap[queryParams.sort] || { by: "Created At", field: "createdAt", order: "Descending" };
 
-  // ক্লোজ ড্রপডাউন অন আউটসাইড ক্লিক
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -77,11 +78,12 @@ export default function PreordersTable() {
 
   // --- হ্যান্ডলার ফাংশনসমূহ ---
 
-  // স্ট্যাটাস সুইচ চেঞ্জার (টগল লজিক ফিক্সড)
-  const handleStatusToggle = async (id: string, currentStatus: boolean) => {
-    const nextStatus = !currentStatus;
+  // স্ট্যাটাস সুইচ চেঞ্জার
+  const handleStatusToggle = async (id: string, currentStatus: any) => {
+    const isCurrentActive = currentStatus === true || currentStatus === "true";
+    const nextStatus = !isCurrentActive; 
+
     try {
-      // টোস্ট প্রমিজ দিয়ে ব্যাকএন্ডের রেসপন্স লাইভ ট্র্যাক করা হচ্ছে
       await toast.promise(
         updatePreorder({ id, status: nextStatus }).unwrap(),
         {
@@ -112,7 +114,7 @@ export default function PreordersTable() {
   // চেক বক্স সিলেক্ট অল হ্যান্ডলার
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      const allIds = preorders.map((item: any) => item.id);
+      const allIds = preorders.map((item: any) => item.id || item._id);
       setSelectedIds(allIds);
     } else {
       setSelectedIds([]);
@@ -126,7 +128,7 @@ export default function PreordersTable() {
     );
   };
 
-  // সর্ট পরিবর্তনের লজিক (ফিক্সড)
+  // সর্ট পরিবর্তনের লজিক
   const handleSortChange = (field: string, direction: "asc" | "desc") => {
     const sortValue = direction === "desc" ? `-${field}` : field;
     setQueryParams(prev => ({ ...prev, sort: sortValue, page: 1 }));
@@ -139,7 +141,7 @@ export default function PreordersTable() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Preorders</h1>
         <button 
-          onClick={() => router.push("/preorder")} //Requirement 5: ওপেন ক্রিয়েট পেজ
+          onClick={() => router.push("/preorder")} 
           className="bg-[#222] hover:bg-black text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 text-sm font-semibold px-5 py-2.5 rounded-lg transition-all shadow-sm self-start sm:self-auto"
         >
           Create Preorder
@@ -149,7 +151,7 @@ export default function PreordersTable() {
       {/* Main Container */}
       <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200/80 dark:border-zinc-800/80 shadow-sm overflow-hidden relative">
         
-        {/* Requirement 6: Loading & Fetching states overlay */}
+        {/* Loading Overlay */}
         {(isLoading || isFetching) && (
           <div className="absolute inset-0 bg-white/40 dark:bg-black/40 z-10 flex items-center justify-center pointer-events-none">
             <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 px-4 py-2 rounded-lg shadow-md border border-gray-100 dark:border-zinc-800">
@@ -159,10 +161,10 @@ export default function PreordersTable() {
           </div>
         )}
 
-        {/* Table Filters & Sort Actions Header */}
+        {/* Filters & Sort Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/30 relative">
           
-          {/* Requirement 1: Backend Filters (Tabs) */}
+          {/* Status Tabs */}
           <div className="flex bg-gray-200/60 dark:bg-zinc-800 p-1 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400">
             {["All", "Active", "Inactive"].map((tab) => (
               <button
@@ -179,7 +181,7 @@ export default function PreordersTable() {
             ))}
           </div>
 
-          {/* Requirement 1: Backend Sort Dropdown */}
+          {/* Backend Sort Dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button 
               onClick={() => setIsSortOpen(!isSortOpen)}
@@ -204,8 +206,8 @@ export default function PreordersTable() {
                     <input
                       type="radio"
                       name="sortBy"
-                      checked={currentSort.by === option.label}
-                      onChange={() => handleSortChange(option.field, currentSort.order === "Ascending" ? "asc" : "desc")}
+                      checked={currentSort.field === option.field}
+                      onChange={() => handleSortChange(option.field, queryParams.sort.startsWith("-") ? "desc" : "asc")}
                       className="w-4 h-4 border-gray-300 accent-black dark:accent-white"
                     />
                     <span className="ml-3 font-medium text-gray-800 dark:text-gray-200">{option.label}</span>
@@ -219,15 +221,16 @@ export default function PreordersTable() {
                   { label: "↑ Ascending", val: "asc" },
                   { label: "↓ Descending", val: "desc" }
                 ].map((order) => {
-                  const targetField = queryParams.sort.replace("-", "");
                   const isCurrentOrder = order.val === "desc" ? queryParams.sort.startsWith("-") : !queryParams.sort.startsWith("-");
                   return (
                     <button
                       key={order.val}
                       type="button"
-                      onClick={() => handleSortChange(targetField, order.val as any)}
+                      onClick={() => handleSortChange(currentSort.field, order.val as any)}
                       className={`w-full text-left px-4 py-2 flex items-center justify-between font-medium transition-colors ${
-                        isCurrentOrder ? "bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white font-semibold" : "hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-400"
+                        isCurrentOrder 
+                          ? "bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white font-semibold" 
+                          : "hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-400"
                       }`}
                     >
                       <span>{order.label}</span>
@@ -241,11 +244,10 @@ export default function PreordersTable() {
 
         {/* Responsive Table Wrapper */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-200px">
+          <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="border-b border-gray-100 dark:border-zinc-800 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50/30 dark:bg-zinc-900/10">
                 <th className="p-4 w-12 text-center">
-                  {/* Requirement 3: Select All Checkbox */}
                   <input 
                     type="checkbox" 
                     onChange={handleSelectAll}
@@ -270,73 +272,75 @@ export default function PreordersTable() {
                   </td>
                 </tr>
               ) : (
-                preorders.map((row: any) => (
-                  <tr key={row.id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-900/30 transition-colors">
-                    <td className="p-4 text-center">
-                      {/* Requirement 3: Row Checkbox */}
-                      <input 
-                        type="checkbox" 
-                        checked={selectedIds.includes(row.id)}
-                        onChange={() => handleSelectRow(row.id)}
-                        className="rounded border-gray-300 dark:border-zinc-700 text-black accent-black dark:accent-white w-4 h-4 cursor-pointer" 
-                      />
-                    </td>
-                    <td className="p-4 font-bold text-gray-900 dark:text-white">{row.name}</td>
-                    <td className="p-4 text-gray-500 dark:text-gray-400">{row.products}</td>
-                    <td className="p-4 text-gray-600 dark:text-gray-400 font-normal">{row.preorderWhen}</td>
-                    <td className="p-4 text-gray-600 dark:text-gray-400 font-normal">
-                      {new Date(row.startsAt).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </td>
-                    <td className="p-4 text-gray-600 dark:text-gray-400 font-normal">
-                      {row.endsAt ? new Date(row.endsAt).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' }) : "—"}
-                    </td>
-                    
-                    {/* Requirement 2: Status Switch Toggle */}
-                    <td className="p-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleStatusToggle(row.id, row.status)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                          row.status ? "bg-black dark:bg-white" : "bg-gray-200 dark:bg-zinc-700"
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-zinc-950 transition duration-200 ease-in-out ${
-                            row.status ? "translate-x-6" : "translate-x-1"
-                          }`}
-                        />
-                      </button>
-                    </td>
+                preorders.map((row: any) => {
+                  const rowId = row.id || row._id;
+                  const isActive = row.status === true || row.status === "true";
 
-                    {/* Requirement 2 & 4: Edit and Delete Action Buttons */}
-                    <td className="p-4">
-                      <div className="flex items-center justify-center gap-2">
-                        {/* Requirement 4: ওপেন আপডেট পেজ উইথ আইডি */}
-                        <button 
+                  return (
+                    <tr key={rowId} className="hover:bg-gray-50/50 dark:hover:bg-zinc-900/30 transition-colors">
+                      <td className="p-4 text-center">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedIds.includes(rowId)}
+                          onChange={() => handleSelectRow(rowId)}
+                          className="rounded border-gray-300 dark:border-zinc-700 text-black accent-black dark:accent-white w-4 h-4 cursor-pointer" 
+                        />
+                      </td>
+                      <td className="p-4 font-bold text-gray-900 dark:text-white">{row.name}</td>
+                      <td className="p-4 text-gray-500 dark:text-gray-400">{row.products}</td>
+                      <td className="p-4 text-gray-600 dark:text-gray-400 font-normal">{row.preorderWhen}</td>
+                      <td className="p-4 text-gray-600 dark:text-gray-400 font-normal">
+                        {row.startsAt ? new Date(row.startsAt).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' }) : "—"}
+                      </td>
+                      <td className="p-4 text-gray-600 dark:text-gray-400 font-normal">
+                        {row.endsAt ? new Date(row.endsAt).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' }) : "—"}
+                      </td>
+                      
+                      {/* Status Switch Toggle */}
+                      <td className="p-4 text-center">
+                        <button
                           type="button"
-                          onClick={() => router.push(`/preorder/${row.id}`)}
-                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 transition-all shadow-sm"
+                          onClick={() => handleStatusToggle(rowId, row.status)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
+                            isActive ? "bg-black dark:bg-white" : "bg-gray-200 dark:bg-zinc-700"
+                          }`}
                         >
-                          <FiEdit3 size={15} />
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-zinc-950 transition duration-200 ease-in-out ${
+                              isActive ? "translate-x-6" : "translate-x-1"
+                            }`}
+                          />
                         </button>
-                        {/* Requirement 2: ডাটাবেজ থেকে রিমুভ করা */}
-                        <button 
-                          type="button"
-                          onClick={() => handleDelete(row.id)}
-                          className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg border border-gray-200 dark:border-zinc-700 hover:border-red-200 dark:hover:border-red-900 transition-all shadow-sm"
-                        >
-                          <FiTrash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+
+                      {/* Actions */}
+                      <td className="p-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button 
+                            type="button"
+                            onClick={() => router.push(`/preorder/${rowId}`)}
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 transition-all shadow-sm"
+                          >
+                            <FiEdit3 size={15} />
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => handleDelete(rowId)}
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg border border-gray-200 dark:border-zinc-700 hover:border-red-200 dark:hover:border-red-900 transition-all shadow-sm"
+                          >
+                            <FiTrash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Requirement 1: Backend Pagination Footer */}
+        {/* Pagination Footer */}
         <div className="flex items-center justify-center p-4 border-t border-gray-100 dark:border-zinc-800 bg-gray-50/30 dark:bg-zinc-900/10 text-xs font-semibold text-gray-600 dark:text-gray-400 gap-4">
           <button 
             type="button"

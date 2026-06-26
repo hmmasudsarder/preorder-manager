@@ -10,14 +10,15 @@ export const preorderApi = baseApi.injectEndpoints({
         method: "POST",
         data: preorderData,
       }),
-      invalidatesTags: ["PREORDER"], // নতুন ডাটা তৈরি হলে লিস্ট রিফ্রেশ করবে
+      invalidatesTags: ["PREORDER"],
     }),
 
-    // get all preorder
+    // get all preorder (FIXED: params যুক্ত করা হয়েছে)
     getAllPreorders: builder.query({
-      query: () => ({
+      query: (params: any) => ({
         url: "/preorder",
         method: "GET",
+        params, // এখানে page, limit, status, sort কুয়েরি হিসেবে ব্যাকএন্ডে যাবে
       }),
       providesTags: ["PREORDER"],
     }),
@@ -35,7 +36,7 @@ export const preorderApi = baseApi.injectEndpoints({
     updatePreorder: builder.mutation({
       query: ({ id, ...preorderData }: { id: string | number; [key: string]: any }) => ({
         url: `/preorder/${id}`,
-        method: "PUT",
+        method: "PUT", // আপনার ব্যাকএন্ডে যদি PATCH হয়, তবে PATCH লিখে দিন
         data: preorderData,
       }),
       invalidatesTags: (result: any, error: any, { id }: any) => [
@@ -55,7 +56,6 @@ export const preorderApi = baseApi.injectEndpoints({
   }),
 });
 
-// Auto-generated hooks রপ্তানি করা হলো কম্পোনেন্টে ব্যবহারের জন্য
 export const {
   useCreatePreorderMutation,
   useGetAllPreordersQuery,
