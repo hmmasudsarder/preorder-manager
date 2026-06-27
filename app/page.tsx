@@ -13,13 +13,13 @@ import { toast } from "react-toastify";
 import { 
   useGetAllPreordersQuery,
   useUpdatePreorderMutation,
-  useDeletePreorderMutation 
+  useDeletePreorderMutation,
+  PreorderListResponse,
 } from "./redux/features/preorder/preorder.api"; 
 
 export default function PreordersTable() {
   const router = useRouter();
 
-  // --- ক্যোয়ারী এবং লোকাল স্টেটসমুহ ---
   const [queryParams, setQueryParams] = useState({
     page: 1,
     limit: 10,
@@ -38,20 +38,18 @@ export default function PreordersTable() {
     sort: queryParams.sort
   };
   
-  // এখানে কন্ডিশন ফিক্স করা হয়েছে যেন সরাসরি বুলিয়ান ভ্যালু পাস হয়
   if (queryParams.status === "Active") apiQuery.status = true;
   if (queryParams.status === "Inactive") apiQuery.status = false;
-  console.log(apiQuery, "first")
+
 
   // Fetching Data
   const { data: apiResponse, isLoading, isFetching } = useGetAllPreordersQuery(apiQuery);
   const [updatePreorder] = useUpdatePreorderMutation();
   const [deletePreorder] = useDeletePreorderMutation();
-  console.log({apiResponse})
 
   // API Data Extraction
-  const preorders = apiResponse?.data?.result || [];
-  const meta = apiResponse?.data?.meta || { page: 1, limit: 10, total: 0, totalPage: 1 };
+  const preorders = (apiResponse as PreorderListResponse)?.data?.result || [];
+  const meta = (apiResponse as PreorderListResponse)?.data?.meta || { page: 1, limit: 10, total: 0, totalPage: 1 };
 
   const sortLabelMap: Record<string, { by: string; field: string; order: string }> = {
     "name": { by: "Name", field: "name", order: "Ascending" },
@@ -76,9 +74,7 @@ export default function PreordersTable() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- হ্যান্ডলার ফাংশনসমূহ ---
-
-  // স্ট্যাটাস সুইচ চেঞ্জার
+  
   const handleStatusToggle = async (id: string, currentStatus: any) => {
     const isCurrentActive = currentStatus === true || currentStatus === "true";
     const nextStatus = !isCurrentActive; 
@@ -97,7 +93,6 @@ export default function PreordersTable() {
     }
   };
 
-  // ডাটা ডিলিট হ্যান্ডলার
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this preorder?")) {
       try {
@@ -111,7 +106,7 @@ export default function PreordersTable() {
     }
   };
 
-  // চেক বক্স সিলেক্ট অল হ্যান্ডলার
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
       const allIds = preorders.map((item: any) => item.id || item._id);
@@ -121,14 +116,14 @@ export default function PreordersTable() {
     }
   };
 
-  // সিঙ্গেল রো চেক বক্স হ্যান্ডলার
+
   const handleSelectRow = (id: string) => {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
-  // সর্ট পরিবর্তনের লজিক
+  
   const handleSortChange = (field: string, direction: "asc" | "desc") => {
     const sortValue = direction === "desc" ? `-${field}` : field;
     setQueryParams(prev => ({ ...prev, sort: sortValue, page: 1 }));

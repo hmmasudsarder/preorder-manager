@@ -1,36 +1,112 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Preorder Manager
 
-## Getting Started
+A Next.js frontend application using Redux Toolkit Query for preorder management.
 
-First, run the development server:
+## Prerequisites
+
+- Node.js 20+ installed
+- npm available
+- A backend API running and reachable at `http://localhost:5000/api/v1`
+
+> This repository is the frontend app only. The backend and database must be started separately.
+
+## Install and run locally
 
 ```bash
+cd e:/assign/preorder-manager
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build for production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm run start
+```
 
-## Learn More
+## Backend / Database setup
 
-To learn more about Next.js, take a look at the following resources:
+The frontend calls the API base URL defined in `app/components/config/index.ts`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```ts
+const config = {
+  baseUrl: "http://localhost:5000/api/v1",
+};
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+export default config;
+```
 
-## Deploy on Vercel
+If your backend runs on a different port or URL, update that file.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Sample backend API requirements
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The app expects these endpoints:
+
+- `GET /preorder` - list preorders
+- `GET /preorder/:id` - get single preorder
+- `POST /preorder/create` - create a preorder
+- `PUT /preorder/:id` - update a preorder
+- `DELETE /preorder/:id` - delete a preorder
+
+### Sample data payload
+
+Use this sample JSON to seed a preorder if your backend supports seeding:
+
+```json
+{
+  "name": "Sample preorder",
+  "products": 2,
+  "preorderWhen": "regardless-of-stock",
+  "startsAt": "2026-07-01T00:00:00.000Z",
+  "endsAt": "2026-12-31T23:59:59.000Z",
+  "status": true
+}
+```
+
+## Redux and data flow
+
+This app uses Redux Toolkit Query for remote data fetching, not local reducers.
+
+- `app/redux/baseApi.ts` defines the shared RTK Query API base.
+- `app/redux/features/preorder/preorder.api.ts` defines the preorder endpoints.
+- `app/redux/store.ts` configures the Redux store with `baseApi.reducer` and middleware.
+- `app/providers.tsx` wraps the app with `react-redux` provider.
+
+### Main hooks
+
+- `useGetAllPreordersQuery` - fetch list of preorders
+- `useGetSinglePreorderQuery` - fetch one preorder by ID
+- `useCreatePreorderMutation` - create a preorder
+- `useUpdatePreorderMutation` - update a preorder
+- `useDeletePreorderMutation` - delete a preorder
+
+## CRUD workflow
+
+### Read
+
+- `app/page.tsx` loads the list of preorders using `useGetAllPreordersQuery`.
+- The table shows each record and exposes edit/delete actions.
+
+### Create
+
+- Click the Create button to open the preorder form.
+- Submit the form to call `useCreatePreorderMutation`.
+
+### Update
+
+- Click the edit button for a row to navigate to `/preorder/[id]`.
+- The form fetches the preorder with `useGetSinglePreorderQuery`.
+- Submit the form to call `useUpdatePreorderMutation`.
+
+### Delete
+
+- Use the delete action in the list page.
+- The app calls `useDeletePreorderMutation`.
+
+## Notes
+
+- If the backend is not available, the frontend will fail to fetch data.
+- Update `app/components/config/index.ts` if your backend API URL changes.

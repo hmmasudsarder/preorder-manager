@@ -1,10 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { baseApi } from "../../baseApi";
 
+export type PreorderListResponse = {
+  data: {
+    result: any[];
+    meta: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPage: number;
+    };
+  };
+};
+
+export type PreorderResponse<T = any> = {
+  data: T;
+};
+
 export const preorderApi = baseApi.injectEndpoints({
-  endpoints: (builder: any) => ({
+  endpoints: (builder) => ({
     // create preorder
-    createPreorder: builder.mutation({
+    createPreorder: builder.mutation<PreorderResponse, any>({
       query: (preorderData: any) => ({
         url: "/preorder/create",
         method: "POST",
@@ -13,19 +29,18 @@ export const preorderApi = baseApi.injectEndpoints({
       invalidatesTags: ["PREORDER"],
     }),
 
-    // get all preorder (FIXED: params যুক্ত করা হয়েছে)
-    getAllPreorders: builder.query({
+    getAllPreorders: builder.query<PreorderListResponse, any>({
       query: (params: any) => ({
         url: "/preorder",
         method: "GET",
-        params, // এখানে page, limit, status, sort কুয়েরি হিসেবে ব্যাকএন্ডে যাবে
+        params,
       }),
       providesTags: ["PREORDER"],
     }),
 
     // get single preorder by id
-    getSinglePreorder: builder.query({
-      query: (id: string | number) => ({
+    getSinglePreorder: builder.query<PreorderResponse, string>({
+      query: (id: string) => ({
         url: `/preorder/${id}`,
         method: "GET",
       }),
@@ -36,7 +51,7 @@ export const preorderApi = baseApi.injectEndpoints({
     updatePreorder: builder.mutation({
       query: ({ id, ...preorderData }: { id: string | number; [key: string]: any }) => ({
         url: `/preorder/${id}`,
-        method: "PUT", // আপনার ব্যাকএন্ডে যদি PATCH হয়, তবে PATCH লিখে দিন
+        method: "PUT", 
         data: preorderData,
       }),
       invalidatesTags: (result: any, error: any, { id }: any) => [

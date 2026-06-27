@@ -2,19 +2,21 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { FiChevronLeft } from "react-icons/fi";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import {
   useCreatePreorderMutation,
   useGetSinglePreorderQuery,
   useUpdatePreorderMutation,
 } from "@/app/redux/features/preorder/preorder.api";
+import Link from "next/link";
 
-interface PreorderFormProps {
-  preorderId?: string;
-}
-
-export default function PreorderForm({ preorderId }: PreorderFormProps) {
+export default function PreorderForm() {
+  const params = useParams();
+  // ইউআরএল-এর ফোল্ডার নাম [id] হলে params.id হবে, [preorderId] হলে params.preorderId হবে
+  const preorderId = Array.isArray(params?.id)
+    ? params?.id[0]
+    : params?.id;
   const router = useRouter();
   const isEditMode = !!preorderId;
 
@@ -29,40 +31,45 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
   });
 
   // --- RTK Query Hooks ---
-  // কন্ডিশনাল কোয়েরি (শুধু এডিট মোডেই এবং preorderId থাকলে সিঙ্গেল ডাটা ফেচ হবে)
   const { data: singleData, isLoading: isFetchLoading } = useGetSinglePreorderQuery(
-    preorderId as string,
-    { skip: !isEditMode || !preorderId }
+    preorderId ?? "",
+    { skip: !isEditMode } // আইডি ভ্যালিড না হলে এপিআই কল স্কিপ করবে
   );
 
-  const [createPreorder, { isLoading: isCreateLoading }] = useCreatePreorderMutation();
-  const [updatePreorder, { isLoading: isUpdateLoading }] = useUpdatePreorderMutation();
+  const [createPreorder, { isLoading: isCreateLoading }] =
+    useCreatePreorderMutation();
+  // const [getSingle]
+  const [updatePreorder, { isLoading: isUpdateLoading }] =
+    useUpdatePreorderMutation();
 
   const isSaving = isCreateLoading || isUpdateLoading;
 
-  // হেল্পার ফাংশন: ISO Date-কে datetime-local ইনপুট ফরম্যাটে রূপান্তর করার জন্য
   const formatYYYYMMDDTHHMM = (dateString?: string) => {
     if (!dateString) return "";
     const d = new Date(dateString);
     if (isNaN(d.getTime())) return "";
-    
-    // টাইমজোন অফসেট ঠিক রেখে সঠিকভাবে YYYY-MM-DDTHH:mm ফরম্যাট তৈরি করা
+
     const pad = (num: number) => String(num).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
-  // ডাটাবেজ থেকে ডাটা লোড হলে ফর্মে প্রি-ফিল করা
   useEffect(() => {
     if (isEditMode && singleData?.data) {
       const item = singleData.data;
-      setFormData({
+      const initialValues = {
         name: item.name || "",
         products: item.products || 1,
         preorderWhen: item.preorderWhen || "regardless-of-stock",
         startsAt: formatYYYYMMDDTHHMM(item.startsAt),
         endsAt: formatYYYYMMDDTHHMM(item.endsAt),
         status: item.status ?? true,
-      });
+      };
+
+      const timeoutId = window.setTimeout(() => {
+        setFormData(initialValues);
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
   }, [singleData, isEditMode]);
 
@@ -72,7 +79,9 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
 
     const payload = {
       ...formData,
-      startsAt: formData.startsAt ? new Date(formData.startsAt).toISOString() : new Date().toISOString(),
+      startsAt: formData.startsAt
+        ? new Date(formData.startsAt).toISOString()
+        : new Date().toISOString(),
       endsAt: formData.endsAt ? new Date(formData.endsAt).toISOString() : null,
     };
 
@@ -87,21 +96,20 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
       router.push("/");
     } catch (err: any) {
       console.error("Failed to save preorder:", err);
-      toast.error(err?.data?.message || "Something went wrong. Please try again.");
+      toast.error(
+        err?.data?.message || "Something went wrong. Please try again.",
+      );
     }
   };
 
-  const handleBackNavigation = () => {
-    router.push("/");
-  };
-
-  // লোডিং স্টেট স্ক্রিন
   if (isEditMode && isFetchLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f9fafb]">
         <div className="flex flex-col items-center gap-2">
           <div className="w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
-          <p className="text-sm font-semibold text-gray-500">Loading existing details...</p>
+          <p className="text-sm font-semibold text-gray-500">
+            Loading existing details...
+          </p>
         </div>
       </div>
     );
@@ -110,26 +118,25 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
   return (
     <div className="min-h-screen bg-[#f9fafb] p-4 md:p-8 font-sans text-gray-800">
       <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-4">
-        
         {/* Top Header Actions */}
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={handleBackNavigation}
             className="flex items-center gap-2 px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 rounded-lg text-sm font-semibold transition shadow-sm"
           >
-            <FiChevronLeft className="text-gray-600" size={16} /> Back
+            <Link href="/">
+              <FiChevronLeft className="text-gray-600" size={16} /> Back
+            </Link>
           </button>
-          
+
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleBackNavigation}
               className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-sm font-semibold transition"
             >
-              Cancel
+              <Link href="/">Cancel</Link>
             </button>
-            
+
             <button
               type="submit"
               disabled={isSaving}
@@ -138,10 +145,10 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
               {isSaving ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Saving...</span>
+                  <span>Updating...</span>
                 </>
               ) : (
-                <span>Save changes</span>
+                <span>Update changes</span>
               )}
             </button>
           </div>
@@ -149,26 +156,34 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
 
         {/* Main Content Form Card */}
         <div className="bg-white rounded-xl border border-gray-200/90 shadow-sm overflow-hidden">
-          
           <div className="p-6 border-b border-gray-100">
-            <h2 className="text-base font-bold text-gray-900">Preorder details</h2>
-            <p className="text-xs text-gray-400 font-medium mt-0.5">These values appear in the preorders list.</p>
+            <h2 className="text-base font-bold text-gray-900">
+              Preorder details
+            </h2>
+            <p className="text-xs text-gray-400 font-medium mt-0.5">
+              These values appear in the preorders list.
+            </p>
           </div>
 
           <div className="p-6 space-y-6 divide-y divide-gray-100">
-            
             {/* 1. Name Field */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
               <div>
-                <label className="text-sm font-bold text-gray-900">Name <span className="text-red-500">*</span></label>
-                <p className="text-xs text-gray-400 font-medium mt-1">A label to recognize this preorder by.</p>
+                <label className="text-sm font-bold text-gray-900">
+                  Name <span className="text-red-500">*</span>
+                </label>
+                <p className="text-xs text-gray-400 font-medium mt-1">
+                  A label to recognize this preorder by.
+                </p>
               </div>
               <div className="md:col-span-2">
                 <input
                   type="text"
                   required
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="e.g. Multi variant 3"
                   className="w-full md:max-w-xl px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-black transition"
                 />
@@ -178,34 +193,53 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
             {/* 2. Products Field */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6">
               <div>
-                <label className="text-sm font-bold text-gray-900">Products</label>
-                <p className="text-xs text-gray-400 font-medium mt-1">Number of products covered by this preorder.</p>
+                <label className="text-sm font-bold text-gray-900">
+                  Products
+                </label>
+                <p className="text-xs text-gray-400 font-medium mt-1">
+                  Number of products covered by this preorder.
+                </p>
               </div>
               <div className="md:col-span-2 flex items-center gap-2">
                 <input
                   type="number"
                   min="1"
                   value={formData.products}
-                  onChange={(e) => setFormData({ ...formData, products: parseInt(e.target.value) || 1 })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      products: parseInt(e.target.value) || 1,
+                    })
+                  }
                   className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:outline-none focus:border-black transition"
                 />
-                <span className="text-xs font-medium text-gray-400">product(s)</span>
+                <span className="text-xs font-medium text-gray-400">
+                  product(s)
+                </span>
               </div>
             </div>
 
             {/* 3. Preorder When Field */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6">
               <div>
-                <label className="text-sm font-bold text-gray-900">Preorder when</label>
-                <p className="text-xs text-gray-400 font-medium mt-1">When customers are allowed to preorder.</p>
+                <label className="text-sm font-bold text-gray-900">
+                  Preorder when
+                </label>
+                <p className="text-xs text-gray-400 font-medium mt-1">
+                  When customers are allowed to preorder.
+                </p>
               </div>
               <div className="md:col-span-2">
                 <select
                   value={formData.preorderWhen}
-                  onChange={(e) => setFormData({ ...formData, preorderWhen: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, preorderWhen: e.target.value })
+                  }
                   className="w-full md:max-w-xl px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-black bg-white transition cursor-pointer"
                 >
-                  <option value="regardless-of-stock">regardless-of-stock</option>
+                  <option value="regardless-of-stock">
+                    regardless-of-stock
+                  </option>
                   <option value="out-of-stock">out-of-stock</option>
                 </select>
               </div>
@@ -214,15 +248,21 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
             {/* 4. Starts At Field */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6">
               <div>
-                <label className="text-sm font-bold text-gray-900">Starts at</label>
-                <p className="text-xs text-gray-400 font-medium mt-1">When the preorder window opens.</p>
+                <label className="text-sm font-bold text-gray-900">
+                  Starts at
+                </label>
+                <p className="text-xs text-gray-400 font-medium mt-1">
+                  When the preorder window opens.
+                </p>
               </div>
               <div className="md:col-span-2 relative md:max-w-xl">
                 <input
                   type="datetime-local"
                   required
                   value={formData.startsAt}
-                  onChange={(e) => setFormData({ ...formData, startsAt: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, startsAt: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-black transition text-gray-700 bg-white"
                 />
               </div>
@@ -231,14 +271,20 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
             {/* 5. Ends At Field */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6">
               <div>
-                <label className="text-sm font-bold text-gray-900">Ends at</label>
-                <p className="text-xs text-gray-400 font-medium mt-1">Leave empty for no end date.</p>
+                <label className="text-sm font-bold text-gray-900">
+                  Ends at
+                </label>
+                <p className="text-xs text-gray-400 font-medium mt-1">
+                  Leave empty for no end date.
+                </p>
               </div>
               <div className="md:col-span-2 relative md:max-w-xl">
                 <input
                   type="datetime-local"
                   value={formData.endsAt}
-                  onChange={(e) => setFormData({ ...formData, endsAt: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, endsAt: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-black transition text-gray-700 bg-white"
                 />
               </div>
@@ -247,13 +293,19 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
             {/* 6. Status Field */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 pb-2">
               <div>
-                <label className="text-sm font-bold text-gray-900">Status</label>
-                <p className="text-xs text-gray-400 font-medium mt-1">Active preorders are visible to customers.</p>
+                <label className="text-sm font-bold text-gray-900">
+                  Status
+                </label>
+                <p className="text-xs text-gray-400 font-medium mt-1">
+                  Active preorders are visible to customers.
+                </p>
               </div>
               <div className="md:col-span-2 flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, status: !formData.status })}
+                  onClick={() =>
+                    setFormData({ ...formData, status: !formData.status })
+                  }
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
                     formData.status ? "bg-black" : "bg-gray-200"
                   }`}
@@ -269,27 +321,24 @@ export default function PreorderForm({ preorderId }: PreorderFormProps) {
                 </span>
               </div>
             </div>
-
           </div>
 
           {/* Footer Actions */}
           <div className="p-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-end gap-2">
             <button
               type="button"
-              onClick={handleBackNavigation}
               className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-sm font-semibold transition"
             >
-              Cancel
+              <Link href="/">Cancel</Link>
             </button>
             <button
               type="submit"
               disabled={isSaving}
               className="px-4 py-2 bg-[#1a1a1a] hover:bg-black text-white rounded-lg text-sm font-semibold transition disabled:opacity-70 flex items-center gap-2"
             >
-              {isSaving ? "Saving..." : "Save changes"}
+              {isSaving ? "Updating..." : "Update changes"}
             </button>
           </div>
-
         </div>
       </form>
     </div>
